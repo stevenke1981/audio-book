@@ -1,0 +1,2 @@
+Place your books here (.txt, .pdf, .epub, .docx, .doc).
+The converter will process all supported files in this folder.

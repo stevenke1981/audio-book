@@ -1,0 +1,44 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+dist/
+build/
+.venv/
+venv/
+env/
+
+# Runtime artifacts
+chunks/
+cache/
+logs/
+*.log
+
+# Output (keep placeholder)
+audiobooks/*.mp3
+audiobooks/*.wav
+audiobooks/*.flac
+audiobooks/*.ogg
+audiobooks/*.m4a
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# Reference clone
+_source_ref/
+
+# Cursor MCP descriptors (not part of project)
+mcps/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test artifacts
+.pytest_cache/
+.coverage
+htmlcov/

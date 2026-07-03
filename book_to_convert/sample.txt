@@ -1,0 +1,4 @@
+This is a sample audiobook for testing the Qwen3 Audiobook Converter.
+The system will extract this text, split it into chunks, and send each chunk
+to the Qwen TTS API for voice generation. You can replace this file with your
+own books to convert. Supported formats include TXT, PDF, EPUB, DOCX, and DOC.

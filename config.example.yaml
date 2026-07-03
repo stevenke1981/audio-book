@@ -1,0 +1,16 @@
+# Example configuration for Qwen3 Audiobook Converter
+# Usage: python audiobook_converter.py --config config.example.yaml
+
+qwen_api_url: "http://127.0.0.1:7860"
+voice_mode: custom_voice
+
+custom_voice_speaker: Ryan
+custom_voice_language: English
+custom_voice_instruct: "Speak naturally and clearly, as if reading a book."
+
+books_folder: book_to_convert
+audiobooks_folder: audiobooks
+chunk_size_words: 1500
+audio_format: mp3
+audio_bitrate: 128k
+enable_caching: true
