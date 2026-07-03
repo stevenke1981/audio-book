@@ -51,4 +51,4 @@
 
 - [x] final.md 驗收報告
 - [x] git init + commit
-- [ ] push 至 github.com/stevenke1981/audio-book
+- [x] push 至 github.com/stevenke1981/audio-book
