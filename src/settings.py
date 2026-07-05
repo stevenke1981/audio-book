@@ -79,12 +79,26 @@ class Settings:
         """Hash voice-related settings for resume validation."""
         parts = [
             self.voice_mode,
+            # Custom Voice
             self.custom_voice_speaker,
             self.custom_voice_language,
             self.custom_voice_instruct,
+            self.custom_voice_model_size,
+            self.custom_voice_model_id,
+            str(self.custom_voice_seed),
+            # Voice Clone
             self.voice_clone_ref_audio,
+            self.voice_clone_language,
+            self.voice_clone_model_size,
+            str(self.voice_clone_use_xvector_only),
+            str(self.voice_clone_seed),
+            # Voice Design
+            self.voice_design_language,
             self.voice_design_description,
+            str(self.voice_design_seed),
+            # Output
             self.audio_format,
+            self.audio_bitrate,
             str(self.chunk_size_words),
         ]
         return hashlib.md5("|".join(parts).encode()).hexdigest()[:12]

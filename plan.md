@@ -70,8 +70,12 @@ audio-book/
 │   └── test_progress.py
 ├── book_to_convert/
 ├── audiobooks/
-└── docs/ (plan/spec/todos/test/final)
+├── plan.md / spec.md / todos.md / test.md / final.md  # 文件位於倉庫根目錄
+├── README.md
+└── config.example.yaml
 ```
+
+> 註：文件（plan/spec/todos/test/final）與 `config.py`、`config.example.yaml` 皆位於**倉庫根目錄**，並非 `docs/` 子目錄。
 
 ## 里程碑時程
 
@@ -90,7 +94,46 @@ audio-book/
 | FFmpeg 未安裝 | 啟動時偵測並提示 |
 | Gradio API 版本差異 | `_resolve_api_name` 動態解析端點 |
 
+## Phase 5：改善優化（cbm 分析後新增）
+
+以 `cbm+audio-book` 索引（24 檔、147 符號、328 邊）與原始碼審查為依據，規劃下一輪可靠性與品質強化。
+
+### 5.1 可靠性修正（P0）
+
+| 項目 | 問題證據 | 目標 |
+|------|----------|------|
+| 部分失敗處理 | `converter.py:275` 即使 `successful < total_chunks` 仍合併並回傳成功；`audio_processor.py:62-79` 只要有一塊成功即回傳 True，缺塊僅記 log | 缺塊時插入靜音佔位或依門檻中止，並在報告明確標示缺塊 |
+| settings_hash 不完整 | `settings.py:78-90` 僅納入 8 欄位，缺 `custom_voice_model_size/model_id/seed`、`voice_clone_*`、`voice_design_language/seed`、`audio_bitrate` | 納入所有影響輸出的語音參數，避免換模型/seed 後 `--resume` 誤用舊快取 |
+| 核心模組零測試 | `qwen_client.py`、`audio_processor.py`、`converter.py`、`audiobook_converter.py` 皆無單元測試 | 以 mock 補齊 API 封裝、音訊合併、轉換流程與 CLI 測試 |
+
+### 5.2 相容性與正確性（P1）
+
+| 項目 | 問題證據 | 目標 |
+|------|----------|------|
+| Voice Clone 端點硬編碼 | `qwen_client.py:107` 寫死 `/generate_voice_clone`，與其他模式動態解析不一致 | 改用 `_resolve_api_name("/generate_voice_clone", "/run_voice_clone")` |
+| 端點解析靜默 fallback | `qwen_client.py:130-135` 無匹配時回傳第一個候選，導致難懂的 Gradio 錯誤 | 無匹配時丟出明確 `ValueError` |
+| 頁碼清理誤刪 | `text_extractor.py:72` `\b\d{1,3}\b` 會誤刪章節號、年份、數據 | 收斂正則或預設關閉，並補測試涵蓋誤刪案例 |
+| PDF/EPUB/DOCX 無測試 | `test_text_extractor.py` 僅涵蓋 TXT/HTML | 補小型 fixture 測試 |
+
+### 5.3 文件與設定一致性（P2）
+
+| 項目 | 目標 |
+|------|------|
+| spec 模組圖 | 修正 `spec.md §3` 依賴關係與實際 import 一致 |
+| final 完成宣稱 | `final.md` 標示 4 項本機驗證項目為「未於本次交付驗證」 |
+| config 範例 | `config.example.yaml` 擴充涵蓋所有語音模式與設定群組 |
+| PyPDF2 遷移 | 規劃遷移至 `pypdf`（PyPDF2 已 deprecated） |
+
+### 5.4 里程碑（改善輪）
+
+| 里程碑 | 完成條件 |
+|--------|----------|
+| M5 可靠性 | 部分失敗處理、settings_hash 補全、核心模組測試通過 |
+| M6 相容性 | 端點解析統一、頁碼清理修正、格式測試補齊 |
+| M7 文件對齊 | spec/final/config 與程式碼一致，PyPDF2 遷移計畫確立 |
+
 ## 參考來源
 
 - 原版：`WhiskeyCoder/Qwen3-Audiobook-Converter` @ main
 - 授權：MIT
+- 分析工具：`cbm+audio-book` 索引（get_architecture / query_graph）

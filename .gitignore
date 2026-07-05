@@ -38,6 +38,10 @@ mcps/
 .DS_Store
 Thumbs.db
 
+# OpenCode agent artifacts
+.opencode/
+.codebase-memory/
+
 # Test artifacts
 .pytest_cache/
 .coverage

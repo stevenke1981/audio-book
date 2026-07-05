@@ -22,6 +22,8 @@
 - 可選移除獨立頁碼（1–3 位數字）
 - 句子邊界保留
 
+> **改善建議（P1）**：`text_extractor.py:72` 的 `\b\d{1,3}\b` 會誤刪章節號（「Chapter 42」）、年份（「2025」）與數據。建議收斂正則（僅比對行首/行尾孤立數字）或將 `clean_page_numbers` 預設改為 `False`，並補測試涵蓋誤刪案例。
+
 ### 2.2 分塊（FR-CHUNK）
 
 | 參數 | 預設 | 說明 |
@@ -67,11 +69,18 @@ API: /generate_voice_design 或 /run_voice_design
 | 合併 | pydub AudioSegment 順序拼接 |
 | FFmpeg | 系統依賴，啟動時檢查 |
 
+> **改善建議（P0）— 部分失敗行為**：目前 `converter.py:275` 即使部分 chunk 失敗仍會合併並回傳成功，`audio_processor.combine_chunks` 只要有一塊成功即回傳 True，缺塊只記錄警告。這會靜默產出不完整有聲書。應改為：缺塊處插入短靜音佔位，或當成功率低於門檻（如 95%）時中止並回報明確錯誤。
+
 ### 2.5 快取（FR-CACHE）
 
 - 路徑：`cache/audio_chunks/{md5}.wav`
-- 雜湊輸入：`text + voice_mode + speaker|ref_audio_name + instruct`
+- 雜湊輸入（`converter.get_cache_path`）：`text + voice_mode + voice_key + extra`
+  - custom_voice：`voice_key=speaker`、`extra=instruct`
+  - voice_clone：`voice_key=ref_audio 檔名`、`extra=""`
+  - voice_design：`voice_key="design"`、`extra=description`
 - **優化**：轉換結束僅清理 `chunks/chunk_*.wav`，**保留** cache
+
+> **改善建議（P0）**：目前快取鍵未納入 `model_size`、`seed`、`language`，換模型或 seed 後可能誤用舊快取。應與 `settings_hash` 一併補齊語音參數。
 
 ### 2.6 進度續傳（FR-RESUME，優化）
 
@@ -91,6 +100,14 @@ API: /generate_voice_design 或 /run_voice_design
 
 - `--resume`：跳過已完成 chunk，從斷點繼續
 - 設定變更（speaker/mode）時 hash 不符則警告並可 `--force-restart`
+
+`settings_hash`（`settings.py:78`）目前納入欄位：`voice_mode`、`custom_voice_speaker`、`custom_voice_language`、`custom_voice_instruct`、`voice_clone_ref_audio`、`voice_design_description`、`audio_format`、`chunk_size_words`。
+
+> **改善建議（P0）**：hash 應補入所有影響輸出的語音參數，避免 `--resume` 誤判：
+> - custom：`custom_voice_model_size`、`custom_voice_model_id`、`custom_voice_seed`
+> - clone：`voice_clone_language`、`voice_clone_model_size`、`voice_clone_use_xvector_only`、`voice_clone_seed`
+> - design：`voice_design_language`、`voice_design_seed`
+> - 音訊：`audio_bitrate`
 
 ### 2.7 CLI 介面（FR-CLI）
 
@@ -145,15 +162,17 @@ python audiobook_converter.py --dry-run
 ## 3. 模組設計
 
 ```
-audiobook_converter.py
-    └── src/settings.py          Settings dataclass + load
-    └── src/converter.py         QwenAudiobookConverter
-            ├── text_extractor.py
-            ├── chunker.py
-            ├── qwen_client.py
-            ├── audio_processor.py
-            └── progress.py
+audiobook_converter.py           # CLI：import load_settings、QwenAudiobookConverter
+    ├── src/settings.py          # load_settings / Settings（被以下所有模組 import）
+    └── src/converter.py         # QwenAudiobookConverter，import settings + 下列全部
+            ├── text_extractor.py    # import settings 無關；被 converter 使用
+            ├── chunker.py           # 純函式 split_into_chunks
+            ├── qwen_client.py       # import settings
+            ├── audio_processor.py   # import settings
+            └── progress.py          # 獨立，無 settings 相依
 ```
+
+> 依賴關係（以 cbm IMPORTS 邊為準）：`audiobook_converter.py` → `converter`、`settings`；`converter` → `settings`、`text_extractor`、`chunker`、`qwen_client`、`audio_processor`、`progress`；`qwen_client`／`audio_processor` → `settings`。
 
 ### 3.1 `Settings`
 
@@ -178,6 +197,10 @@ class Settings:
 - `generate_voice_design(text) -> path`
 - `_resolve_api_name(*candidates)`
 
+> **改善建議（P1）**：
+> - `_generate_voice_clone`（`qwen_client.py:107`）目前硬編碼 `/generate_voice_clone`，與 custom/design 的動態解析不一致，應改用 `_resolve_api_name("/generate_voice_clone", "/run_voice_clone")`。
+> - `_resolve_api_name`（`qwen_client.py:130`）在無匹配端點時靜默回傳第一個候選，導致難以除錯的 Gradio 錯誤。應改為丟出明確 `ValueError`，或於呼叫前以 `check_health` 驗證端點存在。
+
 ### 3.3 `ProgressTracker`
 
 - `load(book_stem) -> ProgressState | None`
@@ -195,6 +218,9 @@ class Settings:
 | NFR-04 | 失敗時仍清理暫存 chunks |
 | NFR-05 | MAX_RETRIES=3，指數退避 |
 | NFR-06 | MAX_WORKERS=1（避免 rate limit） |
+| NFR-07（新增） | 部分 chunk 失敗須明確標示（靜音佔位或門檻中止），不得靜默產出不完整輸出 |
+| NFR-08（新增） | 核心模組（qwen_client / audio_processor / converter / CLI）須具備 mock 單元測試 |
+| NFR-09（新增） | 規劃自 PyPDF2 遷移至 `pypdf`（PyPDF2 已 deprecated） |
 
 ## 5. 相容性
 

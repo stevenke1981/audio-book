@@ -71,21 +71,47 @@ python audiobook_converter.py --dry-run --file book_to_convert/sample.txt
 → 擷取 303 字元、53 字、1 chunk，exit 0
 ```
 
-## 5. 待本機環境驗證（需 Qwen + FFmpeg）
+## 5. 未於本次交付驗證（需 Qwen + FFmpeg，尚未實測）
 
-| 項目 | 指令 | 預期 |
+> 下列項目為**關鍵路徑但未於本次交付驗證**，不應視為已完成。需本機環境實測後才可勾選。
+
+| 項目 | 指令 | 預期 | 狀態 |
+|------|------|------|------|
+| API 連線 | `--check-api` | Gradio 運行時 exit 0 | ⏳ 未驗證 |
+| 完整轉換 | `python audiobook_converter.py` | audiobooks/sample.mp3 | ⏳ 未驗證 |
+| 續傳 | 中斷後 `--resume` | 跳過已完成 chunk | ⏳ 未驗證 |
+| Voice Clone | `--voice-clone --voice-sample ref.wav` | 克隆輸出 | ⏳ 未驗證 |
+
+## 6. cbm 審查發現的改善建議
+
+以 `cbm+audio-book` 索引（24 檔、147 符號、328 邊）與原始碼審查為據，識別出下列待改善項目（詳見 plan.md Phase 5、todos.md Phase 7）：
+
+### P0（可靠性）
+
+| 問題 | 證據 | 風險 |
 |------|------|------|
-| API 連線 | `--check-api` | Gradio 運行時 exit 0 |
-| 完整轉換 | `python audiobook_converter.py` | audiobooks/sample.mp3 |
-| 續傳 | 中斷後 `--resume` | 跳過已完成 chunk |
-| Voice Clone | `--voice-clone --voice-sample ref.wav` | 克隆輸出 |
+| 部分 chunk 失敗仍靜默產出不完整有聲書 | `converter.py:275`、`audio_processor.py:62-79` | 聽眾內容缺漏無提示 |
+| `settings_hash` 缺語音參數 | `settings.py:78-90` 僅 8 欄位 | 換模型/seed 後 `--resume` 誤用舊快取 |
+| 核心模組零測試 | `qwen_client`/`audio_processor`/`converter`/CLI 無測試 | 最易出錯邏輯無回歸保護 |
 
-## 6. 已知限制
+### P1（相容性與正確性）
+
+| 問題 | 證據 |
+|------|------|
+| Voice Clone 端點硬編碼 | `qwen_client.py:107` 寫死 `/generate_voice_clone` |
+| 端點解析靜默 fallback | `qwen_client.py:130-135` 無匹配回傳首候選 |
+| 頁碼清理誤刪章節號/年份 | `text_extractor.py:72` `\b\d{1,3}\b` |
+| PDF/EPUB/DOCX 無測試 | `test_text_extractor.py` 僅涵蓋 TXT/HTML |
+
+## 7. 已知限制
 
 - 無句號的極長段落可能成為單一 chunk（與原版行為一致）
 - 完整 TTS 轉換需本機 Qwen3 Gradio 運行
 - PyPDF2 已 deprecated，未來可遷移至 pypdf
+- 部分 chunk 失敗處理待強化（見 §6 P0）
 
-## 7. 結論
+## 8. 結論
 
-專案已完成原版功能復刻與規劃文件所列優化，單元測試與 CLI 驗收通過。可推送至 `stevenke1981/audio-book` 供後續整合測試。
+第一輪已完成原版功能復刻與規劃文件所列優化，單元測試（19/19）與 CLI/dry-run 驗收通過。
+
+**現況判定：pass-with-notes**。核心工具邏輯已測試，但 API 封裝、音訊合併、轉換流程與 CLI 尚無自動化測試，且部分失敗處理、settings_hash 完整性等可靠性項目待改善。§5 的 4 項本機驗證與 §6 的 P0/P1 改善項目完成後，方可宣告完整交付。後續工作追蹤於 todos.md Phase 7。

@@ -65,11 +65,15 @@ class TextExtractor:
     def clean_text(self, text: str) -> str:
         if not text:
             return ""
+        if self.clean_page_numbers:
+            # Remove line-isolated page numbers BEFORE whitespace normalization.
+            # Uses MULTILINE mode so ^/$ match line boundaries.
+            # Only removes entire lines consisting solely of 1-3 digits.
+            # This avoids removing chapter numbers ("Chapter 42"), years ("2025"), or inline data.
+            text = re.sub(r"^\d{1,3}$", "", text, flags=re.MULTILINE)
         if self.normalize_whitespace:
             text = re.sub(r"\s+", " ", text)
             text = text.replace("\n", " ")
-        if self.clean_page_numbers:
-            text = re.sub(r"\b\d{1,3}\b(?=\s|$)", "", text)
         return text.strip()
 
     def clean_html(self, html_content: str) -> str:

@@ -38,10 +38,15 @@ class AudioProcessor:
             combined = AudioSegment.empty()
             successful = 0
             missing_chunks = []
+            SILENCE_DURATION_MS = 2000  # 2-second silence for missing chunks
 
             for i in range(1, total_chunks + 1):
-                if results is not None and not results.get(i, False):
+                chunk_available = results is None or results.get(i, False)
+                if not chunk_available:
                     missing_chunks.append(i)
+                    # Insert silence placeholder for missing chunk
+                    combined += AudioSegment.silent(duration=SILENCE_DURATION_MS)
+                    logger.warning("Inserted silence for missing chunk %d", i)
                     continue
 
                 chunk_file = self.chunks_dir / f"chunk_{i:04d}.wav"
@@ -55,15 +60,21 @@ class AudioProcessor:
                     except Exception as exc:
                         logger.warning("Failed to load chunk %d: %s", i, exc)
                         missing_chunks.append(i)
+                        combined += AudioSegment.silent(duration=SILENCE_DURATION_MS)
                 else:
                     logger.warning("Chunk file not found: %s", chunk_file)
                     missing_chunks.append(i)
+                    combined += AudioSegment.silent(duration=SILENCE_DURATION_MS)
 
             if successful == 0:
                 raise RuntimeError("No valid chunks found")
 
             if missing_chunks:
-                logger.warning("Missing chunks: %s", missing_chunks)
+                logger.warning(
+                    "Missing %d/%d chunks — silence inserted at gaps",
+                    len(missing_chunks),
+                    total_chunks,
+                )
 
             export_params = {"format": self.settings.audio_format}
             if self.settings.audio_format == "mp3":
@@ -71,10 +82,11 @@ class AudioProcessor:
 
             combined.export(str(output_path), **export_params)
             logger.info(
-                "Audiobook saved: %s (%d/%d chunks)",
+                "Audiobook saved: %s (%d/%d chunks, %d missing with silence)",
                 output_path,
                 successful,
                 total_chunks,
+                len(missing_chunks),
             )
             return True
 

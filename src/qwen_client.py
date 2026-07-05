@@ -94,6 +94,9 @@ class QwenClient:
             raise FileNotFoundError(f"Reference audio not found: {ref_audio}")
         if not self.voice_clone_ref_text:
             raise ValueError("Reference text is required for voice cloning")
+        clone_api = self._resolve_api_name(
+            "/generate_voice_clone", "/run_voice_clone"
+        )
         return self.client.predict(
             ref_audio=handle_file(ref_audio),
             ref_text=self.voice_clone_ref_text,
@@ -104,7 +107,7 @@ class QwenClient:
             max_chunk_chars=self.settings.voice_clone_max_chunk_chars,
             chunk_gap=self.settings.voice_clone_chunk_gap,
             seed=self.settings.voice_clone_seed,
-            api_name="/generate_voice_clone",
+            api_name=clone_api,
         )
 
     def _generate_voice_design(self, text: str) -> Tuple:
@@ -132,7 +135,10 @@ class QwenClient:
         for candidate in candidates:
             if candidate in named_endpoints:
                 return candidate
-        return candidates[0]
+        raise ValueError(
+            f"None of the expected API endpoints found: {candidates}. "
+            f"Available endpoints: {list(named_endpoints.keys())}"
+        )
 
     def _endpoint_accepts_param(self, api_name: str, param_name: str) -> bool:
         endpoint = self.api_info.get("named_endpoints", {}).get(api_name, {})

@@ -103,14 +103,17 @@ class QwenAudiobookConverter:
         if self.settings.voice_mode == "custom_voice":
             voice_key = self.settings.custom_voice_speaker
             extra = self.settings.custom_voice_instruct
+            params = f"{self.settings.custom_voice_model_size}_{self.settings.custom_voice_model_id}_{self.settings.custom_voice_seed}"
         elif self.settings.voice_mode == "voice_clone":
             voice_key = Path(self.settings.voice_clone_ref_audio).name
             extra = ""
+            params = f"{self.settings.voice_clone_language}_{self.settings.voice_clone_model_size}_{self.settings.voice_clone_seed}"
         else:
             voice_key = "design"
             extra = self.settings.voice_design_description
+            params = f"{self.settings.voice_design_language}_{self.settings.voice_design_seed}"
 
-        content = f"{text}_{self.settings.voice_mode}_{voice_key}_{extra}"
+        content = f"{text}_{self.settings.voice_mode}_{voice_key}_{extra}_{params}"
         digest = hashlib.md5(content.encode()).hexdigest()
         return Path("cache/audio_chunks") / f"{digest}.wav"
 
@@ -356,7 +359,8 @@ class QwenAudiobookConverter:
             print(f"Speaker: {self.settings.custom_voice_speaker}")
             print(f"Language: {self.settings.custom_voice_language}")
         elif self.settings.voice_mode == "voice_clone":
-            print(f"Reference: {Path(self.settings.voice_clone_ref_audio).name}")
+            ref_name = Path(self.settings.voice_clone_ref_audio).name if self.settings.voice_clone_ref_audio else "N/A"
+            print(f"Reference: {ref_name}")
         elif self.settings.voice_mode == "voice_design":
             print(f"Description: {self.settings.voice_design_description[:60]}...")
         print(f"Output format: {self.settings.audio_format}")
